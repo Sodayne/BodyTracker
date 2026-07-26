@@ -79,9 +79,13 @@ def load_data():
             data = rows[1:]
             df = pd.DataFrame(data, columns=headers)
 
+            # Normalizziamo le colonne rimuovendo spazi superflui e portandole in minuscolo
             df.columns = df.columns.str.strip().str.lower()
-            df["data"] = pd.to_datetime(df["data"]).dt.date
+            
+            if "data" in df.columns:
+                df["data"] = pd.to_datetime(df["data"]).dt.date
 
+            # Convertiamo tutte le colonne tranne 'data' in valori numerici
             for col in df.columns:
                 if col != "data":
                     df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -231,6 +235,7 @@ with tab_dash:
             unsafe_allow_html=True,
         )
 
+        # Mappatura completa e pulita di tutte le metriche da plottare
         metric_labels = {
             "peso": "Peso (kg)",
             "massa grassa": "Massa Grassa (%)",
