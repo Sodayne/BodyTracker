@@ -1,6 +1,6 @@
 from datetime import date
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 
@@ -8,31 +8,59 @@ import streamlit as st
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwqhJD87jDqC1Xtw79bJt19e4sznkyfu50xJJkQlNlLVzeqg8sSp9wuvL0GQFTmIqfU/exec"
 
 st.set_page_config(
-    page_title="Body Tracker", page_icon="📊", layout="centered"
+    page_title="Body Tracker", page_icon="🫀", layout="centered"
 )
 
-# --- STILE CSS PERSONALIZZATO PER I BLOCCHETTI KPI ---
+# --- STILE CSS CUSTOM (UI/UX DI LIONE) ---
 st.markdown(
     """
     <style>
+    /* Stile generale e font */
+    .main {
+        background-color: #fafbfc;
+    }
+    
+    /* Card KPI Moderna */
     .kpi-card {
-        background-color: #f0f2f6;
-        border-radius: 10px;
-        padding: 15px;
+        background: linear-gradient(135deg, #ffffff 0% , #f4f6f9 100%);
+        border: 1px solid #e1e4e8;
+        border-radius: 14px;
+        padding: 16px;
         text-align: center;
-        box-shadow: 2px 2px 5px rgba(0,0.5,0,0.05);
-        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        margin-bottom: 12px;
+        transition: transform 0.2s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
     }
     .kpi-title {
-        font-size: 14px;
-        color: #555555;
+        font-size: 13px;
+        color: #656d76;
         font-weight: 600;
-        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
     }
     .kpi-value {
-        font-size: 20px;
-        color: #0e1117;
-        font-weight: bold;
+        font-size: 22px;
+        color: #1f2328;
+        font-weight: 800;
+    }
+    .kpi-delta {
+        font-size: 11px;
+        font-weight: 600;
+        margin-top: 4px;
+    }
+    .delta-pos { color: #cf222e; } /* Rosso se sale (es. massa grassa) o personalizzabile */
+    .delta-neg { color: #1a7f37; } /* Verde se scende */
+    
+    /* Header personalizzati */
+    h3 {
+        color: #1f2328;
+        font-weight: 700;
+        padding-bottom: 4px;
     }
     </style>
 """,
@@ -58,28 +86,10 @@ def load_data():
                     df[col] = pd.to_numeric(df[col], errors="coerce")
             return df
         else:
-            return pd.DataFrame(
-                columns=[
-                    "data",
-                    "peso",
-                    "massa grassa",
-                    "massa magra",
-                    "bmi",
-                    "metabolismo basale",
-                ]
-            )
+            return pd.DataFrame()
     except Exception as e:
         st.error(f"Errore di connessione al foglio: {e}")
-        return pd.DataFrame(
-            columns=[
-                "data",
-                "peso",
-                "massa grassa",
-                "massa magra",
-                "bmi",
-                "metabolismo basale",
-            ]
-        )
+        return pd.DataFrame()
 
 
 df = load_data()
@@ -87,47 +97,61 @@ df = load_data()
 st.title("🫀 Body Composition Tracker")
 
 tab_dash, tab_add, tab_manage = st.tabs(
-    ["📈 Dashboard", "➕ Inserisci", "⚙️ Gestisci / Modifica"]
+    ["📈 Dashboard", "➕ Inserisci", "⚙️ Gestisci"]
 )
 
 # ================= TAB 1: DASHBOARD =================
 with tab_dash:
-    st.subheader("Panoramica e KPI")
-
     if not df.empty and "peso" in df.columns and len(df) > 0:
+        # Ordiniamo per data
+        df_sorted = df.sort_values("data")
         df_sorted_desc = df.sort_values("data", ascending=False)
+        
         latest = df_sorted_desc.iloc[0]
+        previous = df_sorted_desc.iloc[1] if len(df_sorted_desc) > 1 else None
 
         bmr_val = latest.get("metabolismo basale", 0)
         tdee_val = int(bmr_val * 1.45) if bmr_val else 0
 
-        # Creazione dei blocchetti KPI personalizzati in HTML/CSS
+        # Calcolo delta rispetto alla misurazione precedente
+        def get_delta(col_name):
+            if previous is not None and col_name in latest and col_name in previous:
+                diff = latest[col_name] - previous[col_name]
+                sign = "+" if diff > 0 else ""
+                return f"{sign}{diff:.1f}"
+            return ""
+
+        peso_delta = get_delta("peso")
+        mg_delta = get_delta("massa grassa")
+
+        st.subheader("Ultimi KPI Registrati")
+
         kpis = [
-            ("Peso", f"{latest['peso']} kg"),
-            ("Massa Grassa", f"{latest.get('massa grassa', 0)}%"),
-            ("BMI", f"{latest.get('bmi', 0)}"),
-            ("BMR", f"{bmr_val} kcal"),
-            ("TDEE stimato", f"{tdee_val} kcal"),
+            ("Peso", f"{latest['peso']} kg", f"{peso_delta} kg vs prec."),
+            ("Massa Grassa", f"{latest.get('massa grassa', 0)}%", f"{mg_delta}% vs prec."),
+            ("BMI", f"{latest.get('bmi', 0)}", ""),
+            ("BMR", f"{bmr_val} kcal", ""),
+            ("TDEE Stimato", f"{tdee_val} kcal", "Attività 1.45"),
         ]
 
-        # Dividiamo i 5 KPI in colonne
-        cols = st.columns(5)
-        for i, (title, val) in enumerate(kpis):
-            with cols[i]:
+        # Griglia KPI reattiva
+        cols = st.columns(3)
+        for i, (title, val, delta) in enumerate(kpis):
+            col_idx = i % 3
+            with cols[col_idx]:
                 st.markdown(
                     f"""
                     <div class="kpi-card">
                         <div class="kpi-title">{title}</div>
                         <div class="kpi-value">{val}</div>
+                        <div class="kpi-delta" style="color: #656d76;">{delta}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
 
         st.divider()
-        st.subheader("Tutti i Trend Storici")
-
-        df_sorted = df.sort_values("data")
+        st.subheader("Trend Temporali")
 
         metric_labels = {
             "peso": "Peso (kg)",
@@ -137,22 +161,40 @@ with tab_dash:
             "metabolismo basale": "Metabolismo Basale (kcal)",
         }
 
+        # Stile grafico coerente ed elegante (Minimal dark/clean touch)
         for col_name, label in metric_labels.items():
             if col_name in df.columns:
-                fig = px.line(
-                    df_sorted,
-                    x="data",
-                    y=col_name,
-                    markers=True,
-                    title=f"Andamento: {label}",
+                fig = go.Figure()
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_sorted["data"],
+                        y=df_sorted[col_name],
+                        mode="lines+markers",
+                        name=label,
+                        line=dict(color="#0969da", width=3),
+                        marker=dict(size=7, color="#0969da"),
+                        fill="tozeroy",
+                        fillcolor="rgba(9, 105, 218, 0.05)",
+                    )
                 )
+
+                fig.update_layout(
+                    title=dict(text=label, font=dict(size=15, color="#1f2328")),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(l=10, r=10, t=40, b=10),
+                    height=240,
+                    xaxis=dict(showgrid=True, gridcolor="#f0f2f5"),
+                    yaxis=dict(showgrid=True, gridcolor="#f0f2f5"),
+                )
+
                 st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("Nessun dato presente nel foglio.")
+        st.info("Nessun dato presente nel foglio. Inserisci la tua prima misurazione!")
 
 # ================= TAB 2: INSERISCI DATI =================
 with tab_add:
-    st.subheader("Nuova Misurazione")
+    st.subheader("➕ Nuova Misurazione")
 
     with st.form("form_inserimento", clear_on_submit=True):
         col_a, col_b = st.columns(2)
@@ -187,7 +229,7 @@ with tab_add:
                 step=10,
             )
 
-        submit = st.form_submit_button("Salva nel Database")
+        submit = st.form_submit_button("Salva nel Database 🚀", use_container_width=True)
 
         if submit:
             payload = {
@@ -203,19 +245,19 @@ with tab_add:
             }
             res = requests.post(WEB_APP_URL, json=payload)
             if res.status_code == 200:
-                st.success("Dati salvati con successo su Google Sheets! 🎉")
+                st.success("Registrato con successo! 🎉")
                 st.rerun()
             else:
                 st.error("Errore durante il salvataggio.")
 
-# ================= TAB 3: GESTISCI / MODIFICA / CANCELLA =================
+# ================= TAB 3: GESTISCI / MODIFICA =================
 with tab_manage:
-    st.subheader("Storico e Gestione Record")
+    st.subheader("⚙️ Gestione Storico")
 
     if not df.empty:
-        edited_df = st.data_editor(df, num_rows="dynamic", key="editor_dati")
+        edited_df = st.data_editor(df, num_rows="dynamic", key="editor_dati", use_container_width=True)
 
-        if st.button("Aggiorna Google Sheet con le modifiche"):
+        if st.button("Aggiorna Google Sheet", use_container_width=True):
             all_rows = [list(edited_df.columns)]
             for _, row in edited_df.iterrows():
                 row_list = list(row)
@@ -225,7 +267,7 @@ with tab_manage:
             payload = {"action": "update", "data": all_rows}
             res = requests.post(WEB_APP_URL, json=payload)
             if res.status_code == 200:
-                st.success("Google Sheet aggiornato correttamente!")
+                st.success("Google Sheet aggiornato!")
                 st.rerun()
             else:
                 st.error("Errore durante l'aggiornamento.")
