@@ -86,6 +86,11 @@ def load_data():
             for col in df.columns:
                 if col != "data":
                     df[col] = pd.to_numeric(df[col], errors="coerce")
+            
+            # ORDINE CRONOLOGICO FORZATO SUBITO
+            if "data" in df.columns and not df.empty:
+                df = df.sort_values("data", ascending=True).reset_index(drop=True)
+                
             return df
         else:
             return pd.DataFrame()
@@ -170,7 +175,8 @@ tab_dash, tab_manage = st.tabs(["📊 Dashboard & Trend", "⚙️ Gestisci Stori
 # ================= TAB 1: DASHBOARD & TREND =================
 with tab_dash:
     if not df.empty and "peso" in df.columns and len(df) > 0:
-        df_sorted = df.sort_values("data")
+        # Assicuriamo l'ordinamento corretto per i grafici e per calcolare l'ultimo inserimento reale per data
+        df_sorted = df.sort_values("data", ascending=True)
         df_sorted_desc = df.sort_values("data", ascending=False)
 
         latest = df_sorted_desc.iloc[0]
