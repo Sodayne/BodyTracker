@@ -263,9 +263,18 @@ with tab_dash:
                     height=220,
                     xaxis=dict(showgrid=True, gridcolor="#f0f2f5"),
                     yaxis=dict(showgrid=True, gridcolor="#f0f2f5"),
+                    dragmode=False,
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+                config = {
+                    "scrollZoom": False,
+                    "displayModeBar": False,
+                    "staticPlot": False,
+                }
+
+                st.plotly_chart(
+                    fig, use_container_width=True, config=config
+                )
     else:
         st.info(
             "Nessun dato presente nel foglio. Espandi il menu in alto per inserire la prima misurazione!"
@@ -283,9 +292,7 @@ with tab_manage:
             df, num_rows="dynamic", key="editor_dati", use_container_width=True
         )
 
-        if st.button(
-            "Salva Modifiche sul Foglio", use_container_width=True
-        ):
+        if st.button("Salva Modifiche sul Foglio", use_container_width=True):
             all_rows = [list(edited_df.columns)]
             for _, row in edited_df.iterrows():
                 row_list = list(row)
