@@ -79,13 +79,10 @@ def load_data():
             data = rows[1:]
             df = pd.DataFrame(data, columns=headers)
 
-            # Normalizziamo le colonne rimuovendo spazi superflui e portandole in minuscolo
             df.columns = df.columns.str.strip().str.lower()
-            
             if "data" in df.columns:
                 df["data"] = pd.to_datetime(df["data"]).dt.date
 
-            # Convertiamo tutte le colonne tranne 'data' in valori numerici
             for col in df.columns:
                 if col != "data":
                     df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -197,6 +194,7 @@ with tab_dash:
 
         peso_delta = get_delta("peso")
         mg_delta = get_delta("massa grassa")
+        mm_delta = get_delta("massa magra")
 
         st.markdown(
             "<p style='font-size: 15px; font-weight: 700; color: #1f2328; margin-bottom: 10px;'>Panoramica Recente</p>",
@@ -209,6 +207,11 @@ with tab_dash:
                 "Massa Grassa",
                 f"{latest.get('massa grassa', 0)}%",
                 f"{mg_delta}% vs prec.",
+            ),
+            (
+                "Massa Magra",
+                f"{latest.get('massa magra', 0)}%",
+                f"{mm_delta}% vs prec.",
             ),
             ("BMI", f"{latest.get('bmi', 0)}", ""),
             ("BMR", f"{bmr_val} kcal", ""),
@@ -235,7 +238,6 @@ with tab_dash:
             unsafe_allow_html=True,
         )
 
-        # Mappatura completa e pulita di tutte le metriche da plottare
         metric_labels = {
             "peso": "Peso (kg)",
             "massa grassa": "Massa Grassa (%)",
